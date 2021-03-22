@@ -20,7 +20,7 @@ class ConverterExcelJSON():
         self.outJSON: dict[str, object] = {}
         self.__parseXLSX()
         # DEBUG
-        # print(json.dumps(self.outJSON, indent=4))
+        print(json.dumps(self.outJSON, indent=4))
         if not(outpath is None):
             assert(os.path.exists(outpath)), "Given outpath does not exist."
             if not(outname is None):
@@ -95,12 +95,11 @@ class ConverterExcelJSON():
         '''
         values = self.__filter(gi, ['Title', 'Date of creation', 'DOI (optional)', 'PubMedID (optional)', 'URL (optional)'], x=1)
         self.outJSON['name'] = values['Title']
-        ######## key 'date' guessed
-        self.outJSON['date'] = values['Date of creation'].strftime('%d.%m.%Y')
+        ######## not implemented yet?
+        #self.outJSON['date'] = values['Date of creation'].strftime('%d.%m.%Y')
         ######## key 'doi' guessed
         self.outJSON['doi'] = values['DOI (optional)']
-        ######## key 'pubmed' guessed
-        self.outJSON['pubmed'] = values['PubMedID (optional)']
+        self.outJSON['pubmedID'] = values['PubMedID (optional)']
         ######## key 'url' guessed
         self.outJSON['url'] = values['URL (optional)']
         # TODO add mail and institute
@@ -129,9 +128,24 @@ class ConverterExcelJSON():
                 reactantDic['smiles'] = values['SMILES'][i]
             self.outJSON['reactant'].append(reactantDic)
 
+    def __getVessel(self, vessels):
+        '''
+        TODO DOKU
+        This function is a placeholder till I understand mapping, for now you can only get ONE Vessel not more!!!
+        '''
+        values = self.__filter(vessels, ['Name', 'ID', 'Volume value', 'Volume unit'], y=1)
+        vesselDic = {}
+        vesselDic['id_'] = values['ID']
+        vesselDic['name'] = values['Name']
+        vesselDic['size'] = values['Volume value']
+        vesselDic['unit'] = values['Volume unit']
+        self.outJSON['vessel'] = vesselDic
+
     def __getVessels(self, vessels):
         '''
         TODO DOKU
+        This function creates a list of all vessels in the excel-sheet, but the API expects a mapping not a list, 
+        maybe this function will be useful later on
         '''
         self.outJSON['vessel'] = []
         values = self.__filter(vessels, ['Name', 'ID', 'Volume value', 'Volume unit'], y=1, isSingleValue=False)
@@ -149,7 +163,7 @@ class ConverterExcelJSON():
         '''
         doc = pd.read_excel(self.path, sheet_name=['General Information', 'Vessels', 'Reactants'])
         self.__getGI(doc['General Information'])
-        self.__getVessels(doc['Vessels'])
+        self.__getVessel(doc['Vessels'])
         self.__getRectants(doc['Reactants'])
 
     def __writeJSON(self, path):
