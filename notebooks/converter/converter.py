@@ -89,7 +89,7 @@ class ConverterExcelJSON():
         Open question: How should we handle NaN?
         '''
         values = self.__filter(gi, ['Title', 'Date of creation', 'DOI (optional)', 'PubMedID (optional)', 'URL (optional)'], x=1)
-        self.outJSON['name'] = values['Title']
+        self.outJSON['name'] = values['Title'].replace(' ', '_')
         ######## not implemented yet?
         # self.outJSON['date'] = values['Date of creation'].strftime('%d.%m.%Y')
         ######## key 'doi' guessed
