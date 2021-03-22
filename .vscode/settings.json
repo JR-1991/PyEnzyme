@@ -1,5 +1,9 @@
 {
     "python.pythonPath": "C:\\Programming\\Python3-9\\python.exe",
-    "python.linting.pylintEnabled": true,
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.flake8Args": [
+        "--max-line-length=150",
+        "--ignore=E266"
+    ]
 }
