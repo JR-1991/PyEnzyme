@@ -19,6 +19,7 @@ class ConverterExcelJSON():
         self.path = path
         self.outJSON: dict[str, object] = {}
         self.__parseXLSX()
+        # DEBUG
         print(json.dumps(self.outJSON, indent=4))
         if not(outpath is None):
             assert(os.path.exists(outpath)), "Given outpath does not exist."
@@ -36,38 +37,6 @@ class ConverterExcelJSON():
                 self.__writeJSON(os.path.join(outpath, outname))
             else:
                 self.__writeJSON(os.path.join(outpath, self.outJSON['name'] + '.json'))
-
-    def __writeJSON(self, path):
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(self.outJSON, f, ensure_ascii=False, indent=4)
-
-    def __parseXLSX(self):
-        '''
-        TODO DOKU
-        '''
-        doc = pd.read_excel(self.path, sheet_name=['General Information'])
-        gi = doc['General Information']
-        ### DEBUG
-        print(gi)
-        self.__getGI(gi)
-
-    def __getGI(self, gi):
-        '''
-        TODO DOKU
-        Open question: How should we handle NaN?
-        '''
-        values = self.__filter(gi, ['Title', 'Date of creation', 'DOI (optional)', 'PubMedID (optional)', 'URL (optional)'], x=1)
-        self.outJSON['name'] = values['Title']
-        ######## key 'date' guessed
-        self.outJSON['date'] = values['Date of creation'].strftime('%d.%m.%Y')
-        ######## key 'doi' guessed
-        self.outJSON['doi'] = values['DOI (optional)']
-        ######## key 'pubmed' guessed
-        self.outJSON['pubmed'] = values['PubMedID (optional)']
-        ######## key 'url' guessed
-        self.outJSON['url'] = values['URL (optional)']
-        values = self.__filter(gi, ['Family Name', 'Given Name'], y=1, isSingleValue=False)
-        print(values)
 
     def __filter(self, df, conds: list[str], y: int = 0, x: int = 0, isSingleValue: bool = True):
         '''
@@ -118,6 +87,53 @@ class ConverterExcelJSON():
         TODO DOKU
         '''
         return[(x, y) for x, y in zip(*np.where(df.values == cond))][0]
+
+    def __getGI(self, gi):
+        '''
+        TODO DOKU
+        Open question: How should we handle NaN?
+        '''
+        values = self.__filter(gi, ['Title', 'Date of creation', 'DOI (optional)', 'PubMedID (optional)', 'URL (optional)'], x=1)
+        self.outJSON['name'] = values['Title']
+        ######## key 'date' guessed
+        self.outJSON['date'] = values['Date of creation'].strftime('%d.%m.%Y')
+        ######## key 'doi' guessed
+        self.outJSON['doi'] = values['DOI (optional)']
+        ######## key 'pubmed' guessed
+        self.outJSON['pubmed'] = values['PubMedID (optional)']
+        ######## key 'url' guessed
+        self.outJSON['url'] = values['URL (optional)']
+        # TODO add mail and institute
+        values = self.__filter(gi, ['Family Name', 'Given Name'], y=1, isSingleValue=False)
+        # TODO add author information to outJSON
+
+    def __getVessels(self, vessels):
+        '''
+        TODO DOKU
+        '''
+        self.outJSON['vessel'] = []
+        values = self.__filter(vessels, ['Name', 'ID', 'Volume value', 'Volume unit'], y=1, isSingleValue=False)
+        for i in range(len(values['Name'])):
+            vesselDic = {}
+            vesselDic['id_'] = values['ID'][i]
+            vesselDic['name'] = values['Name'][i]
+            vesselDic['size'] = values['Volume value'][i]
+            vesselDic['unit'] = values['Volume unit'][i]
+            self.outJSON['vessel'].append(vesselDic)
+
+    def __parseXLSX(self):
+        '''
+        TODO DOKU
+        '''
+        doc = pd.read_excel(self.path, sheet_name=['General Information', 'Vessels'])
+        gi = doc['General Information']
+        vessels = doc['Vessels']
+        self.__getGI(gi)
+        self.__getVessels(vessels)
+
+    def __writeJSON(self, path):
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(self.outJSON, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == '__main__':
