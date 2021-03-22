@@ -106,7 +106,35 @@ class ConverterExcelJSON():
         values = self.__filter(gi, ['Family Name', 'Given Name'], y=1, isSingleValue=False)
         # TODO add author information to outJSON
 
-    def __getRectants(self, reactants):
+    def __getProteins(self, proteins):
+        '''
+        TODO DOKU
+        '''
+        self.outJSON['protein'] = []
+        values = self.__filter(proteins, ['Name', 'ID', 'Sequence', 'Vessel', 'Constant', 'Source organism', 'EC Number', 'UniProt ID'], y=1, isSingleValue=False)
+        for i in range(len(values['Name'])):
+            proteinDic = {}
+            # id not wanted
+            # proteinDic['id_'] = values['ID'][i]
+            proteinDic['name'] = values['Name'][i]
+            proteinDic['sequence'] = values['Sequence'][i]
+            # TODO may need to access VesselDic
+            proteinDic['compartment'] = values['Vessel'][i]
+            proteinDic['constant'] = (values['Constant'][i] == 'Constant')
+            # Source organism is optional is only added if an Source organism is given
+            if not(values['Source organism'][i] is np.nan):
+                proteinDic['organism'] = values['Source organism'][i]
+            # EC Number is optional
+            if not(values['EC Number'][i] is np.nan):
+                proteinDic['ecnumber'] = values['EC Number'][i]
+            # UniProt ID is optional
+            if not(values['UniProt ID'][i] is np.nan):
+                proteinDic['uniprotid'] = values['UniProt ID'][i]
+            # Protein Dic needs substanceunits, these are not given in the excel sheet so I cheat here!!!
+            proteinDic['substanceunits'] = 'umole / l'
+            self.outJSON['protein'].append(proteinDic)
+
+    def __getReactants(self, reactants):
         '''
         TODO DOKU
         '''
@@ -114,8 +142,8 @@ class ConverterExcelJSON():
         values = self.__filter(reactants, ['Name', 'ID', 'Vessel', 'Constant', 'SMILES', 'InCHI'], y=1, isSingleValue=False)
         for i in range(len(values['Name'])):
             reactantDic = {}
-            ####### key 'id_' guessed
-            reactantDic['id_'] = values['ID'][i]
+            # id not wanted
+            # reactantDic['id_'] = values['ID'][i]
             reactantDic['name'] = values['Name'][i]
             # TODO may need to access VesselDic
             reactantDic['compartment'] = values['Vessel'][i]
@@ -161,10 +189,11 @@ class ConverterExcelJSON():
         '''
         TODO DOKU
         '''
-        doc = pd.read_excel(self.path, sheet_name=['General Information', 'Vessels', 'Reactants'])
+        doc = pd.read_excel(self.path, sheet_name=['General Information', 'Vessels', 'Reactants', 'Proteins'])
         self.__getGI(doc['General Information'])
         self.__getVessel(doc['Vessels'])
-        self.__getRectants(doc['Reactants'])
+        self.__getReactants(doc['Reactants'])
+        self.__getProteins(doc['Proteins'])
 
     def __writeJSON(self, path):
         with open(path, 'w', encoding='utf-8') as f:
