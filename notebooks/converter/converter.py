@@ -7,22 +7,39 @@ Created on 21.03.2021
 import pandas as pd
 import numpy as np
 import json
-import datetime
+import os
+
 
 class ConverterExcelJSON():
 
-    def toJSON(self, path, out=None):
+    def toJSON(self, path, outpath=None, outname=None):
         '''
         TODO DOKU
         '''
         self.path = path
-        self.outJSON : dict[str, object] = {}
+        self.outJSON: dict[str, object] = {}
         self.__parseXLSX()
         print(json.dumps(self.outJSON, indent=4))
-        if not(out == None):
-            with open(out+'json.json','w', encoding='utf-8') as f:
-                json.dump(self.outJSON, f, ensure_ascii=False, indent=4)
+        if not(outpath is None):
+            assert(os.path.exists(outpath)), "Given outpath does not exist."
+            if not(outname is None):
+                if not(outname[-5:] == '.json'):
+                    outname = outname + '.json'
+                self.__writeJSON(os.path.join(outpath, outname))
+            else:
+                self.__writeJSON(os.path.join(outpath, self.outJSON['name'] + '.json'))
+        else:
+            outpath = os.path.split(path)[0]
+            if not(outname is None):
+                if not(outname[-5:] == '.json'):
+                    outname = outname + '.json'
+                self.__writeJSON(os.path.join(outpath, outname))
+            else:
+                self.__writeJSON(os.path.join(outpath, self.outJSON['name'] + '.json'))
 
+    def __writeJSON(self, path):
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(self.outJSON, f, ensure_ascii=False, indent=4)
 
     def __parseXLSX(self):
         '''
@@ -48,16 +65,15 @@ class ConverterExcelJSON():
         self.outJSON['pubmed'] = values['PubMedID (optional)']
         ######## key 'url' guessed
         self.outJSON['url'] = values['URL (optional)']
-        
 
-    def __filter(self, df, conds: list[str], y: int =0, x: int =0, isSingleValue: bool=True):
+    def __filter(self, df, conds: list[str], y: int = 0, x: int = 0, isSingleValue: bool = True):
         '''
         TODO DOKU
         '''
         values = dict()
         for cond in conds:
             coords = self.__getCoords(df, cond)
-            values[cond] = df.iloc[coords[0]+y, coords[1]+x]
+            values[cond] = df.iloc[coords[0] + y, coords[1] + x]
         return values
 
     def __getCoords(self, df, cond):
@@ -66,6 +82,7 @@ class ConverterExcelJSON():
         '''
         return[(x, y) for x, y in zip(*np.where(df.values == cond))][0]
 
+
 if __name__ == '__main__':
     path = '../datasets/EnzymeML_Template_Example.xlsx'
-    ConverterExcelJSON().toJSON(path, out = '../datasets/')
+    ConverterExcelJSON().toJSON(path)
