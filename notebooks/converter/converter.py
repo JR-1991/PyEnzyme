@@ -20,7 +20,7 @@ class ConverterExcelJSON():
         self.outJSON: dict[str, object] = {}
         self.__parseXLSX()
         # DEBUG
-        print(json.dumps(self.outJSON, indent=4))
+        # print(json.dumps(self.outJSON, indent=4))
         if not(outpath is None):
             assert(os.path.exists(outpath)), "Given outpath does not exist."
             if not(outname is None):
@@ -107,6 +107,28 @@ class ConverterExcelJSON():
         values = self.__filter(gi, ['Family Name', 'Given Name'], y=1, isSingleValue=False)
         # TODO add author information to outJSON
 
+    def __getRectants(self, reactants):
+        '''
+        TODO DOKU
+        '''
+        self.outJSON['reactant'] = []
+        values = self.__filter(reactants, ['Name', 'ID', 'Vessel', 'Constant', 'SMILES', 'InCHI'], y=1, isSingleValue=False)
+        for i in range(len(values['Name'])):
+            reactantDic = {}
+            ####### key 'id_' guessed
+            reactantDic['id_'] = values['ID'][i]
+            reactantDic['name'] = values['Name'][i]
+            # TODO may need to access VesselDic
+            reactantDic['compartment'] = values['Vessel'][i]
+            reactantDic['constant'] = (values['Constant'][i] == 'Constant')
+            # InCHI is optional is only added if an InCHI is given
+            if not(values['InCHI'][i] is np.nan):
+                reactantDic['inchi'] = values['InCHI'][i]
+            # SMILES is optional
+            if not(values['SMILES'][i] is np.nan):
+                reactantDic['smiles'] = values['SMILES'][i]
+            self.outJSON['reactant'].append(reactantDic)
+
     def __getVessels(self, vessels):
         '''
         TODO DOKU
@@ -125,11 +147,10 @@ class ConverterExcelJSON():
         '''
         TODO DOKU
         '''
-        doc = pd.read_excel(self.path, sheet_name=['General Information', 'Vessels'])
-        gi = doc['General Information']
-        vessels = doc['Vessels']
-        self.__getGI(gi)
-        self.__getVessels(vessels)
+        doc = pd.read_excel(self.path, sheet_name=['General Information', 'Vessels', 'Reactants'])
+        self.__getGI(doc['General Information'])
+        self.__getVessels(doc['Vessels'])
+        self.__getRectants(doc['Reactants'])
 
     def __writeJSON(self, path):
         with open(path, 'w', encoding='utf-8') as f:
