@@ -140,3 +140,7 @@ pyenzyme/Examples/getJSONValid.py
 
 # Datasets
 notebooks/datasets/*
+# exceptions
+!notebooks/datasets/API-Test-Fantasy.json
+!notebooks/datasets/EnzymeML_Template_Example.xlsm
+!notebooks/datasets/Rother/*
