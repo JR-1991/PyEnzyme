@@ -94,7 +94,7 @@ class UnitDef(object):
 
     def setId(self, id_):
         self.__id = TypeChecker(id_, str)
-        self.setMetaid("METAID_%s" % id_.upper())
+        self.setMetaid(f"METAID_{id_.upper()}")
 
 
     def setMetaid(self, metaid):

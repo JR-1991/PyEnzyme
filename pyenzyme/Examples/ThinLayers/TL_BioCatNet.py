@@ -23,60 +23,64 @@ class ThinlayerBioCatNet():
         
         # set path for loading
         self.path = path
-        if out == None: out = "/".join( self.path.split('/')[0:-1] ) 
+        if out is None:
+            out = "/".join(self.path.split('/')[:-1])
         self.__parseXLSX()
-        
+
         # initialize EnzymeMLDocument
         enzmldoc = EnzymeMLDocument(self.exp)
-        
+
         # set vessel
         vessel = Vessel("Vessel", "v0", self.vessel['vessel_val'], self.vessel['vessel_unit'])
         enzmldoc.setVessel(vessel)
-        
+
         # set proteins
         for key, protein in self.proteins.items():
             protein = Protein(key, protein['sequence'], "v0", protein['conc_val'], protein['conc_unit'])
             enzmldoc.addProtein(protein)
-            
+
         # set buffer
         buffer = Reactant(self.buffer['name'], "v0", self.buffer['conc_val'], self.buffer['conc_unit'], constant=True)
         enzmldoc.addReactant(buffer)
-        
+
         # set reactants
         for key, reac in self.reactants.items():
             reactant = Reactant(key, "v0", reac['conc_val'], reac['conc_unit'], constant=False)
             reactant.setSmiles(reac['smiles'])
             enzmldoc.addReactant(reactant)
-            
-        
+
+
         for key, reac in self.reactions.items():
             
             # set reaction
             enzymereac = EnzymeReaction( reac['temp'], "C", reac['ph'] , reac['name'] + "_%i" % key, reversible=True)
             #enzymereac.setEducts([])
-            
+
             # add educts
             educts = reac['educts']
             for stoich, educt in educts:
                 enzymereac.addEduct( enzmldoc.getReactant( educt , by_id=False).getId() , stoich, False, enzmldoc)
-            
+
             # add educts
             products = reac['products']
             for stoich, product in products:
                 enzymereac.addProduct( enzmldoc.getReactant( product , by_id=False).getId() , stoich, False, enzmldoc)
-            
+
             # add modifier and protein to reaction
             enzymereac.addModifier( "s0" , 1.0, True, enzmldoc)
             enzymereac.addModifier( enzmldoc.getProtein( self.measurements[key][0], by_id=False).getId() , 1.0, True, enzmldoc )
-            
+
             # add replicates
             for repl in reac['replicates']:
                 
                 data = repl['data']
-                data.index.names = [ "time/%s" % repl['time_unit'] ]
-                data = data.rename( "%s/%s/conc" % ( repl['id'], enzmldoc.getReactant( repl['reactant'], by_id=False).getId() ) )
-                
-                
+                data.index.names = [f"time/{repl['time_unit']}"]
+                data = data.rename(
+                    f"{repl['id']}/{enzmldoc.getReactant( repl['reactant'], by_id=False).getId()}/conc"
+                )
+
+                            
+
                 replicate = Replicate( repl['id'], 
                                        enzmldoc.getReactant(repl['reactant'], by_id=False).getId(), 
                                        "conc", 
@@ -84,18 +88,18 @@ class ThinlayerBioCatNet():
                                        repl['time_unit'],
                                        enzmldoc.getReactant(repl['reactant'], by_id=False).getInitConc()
                                        )
-                
-                
+
+
                 replicate.setData(data)
                 enzymereac.addReplicate(replicate, enzmldoc)
-                
-                
+
+
             enzmldoc.addReaction(enzymereac)
             del enzymereac
-        
+
         reactions = self.__collapseEnzymeML(enzmldoc)
         self.__finalizeEnzymeML(enzmldoc, reactions)
-        
+
         writer = EnzymeMLWriter()
         writer.toFile(enzmldoc, out)
         
@@ -190,23 +194,23 @@ class ThinlayerBioCatNet():
     def __collapseEnzymeML(self, enzmldoc):
         
         # reduce proteins to a unique set
-        prot_set = dict()
-        prot_ref = dict()
-        
+        prot_set = {}
+        prot_ref = {}
+
         for reac in enzmldoc.getReactionDict().values():
-            
+
             prot_id = reac.getModifiers()[-1][0]
             prot_conc = enzmldoc.getProtein(prot_id).getInitConc()
-            
+
             if prot_conc not in prot_set.values():
                 prot_set[prot_id] = prot_conc
                 prot_ref[prot_id] = [prot_id]
             else:
                 prot_ref[ [ id_ for id_, conc in prot_set.items() if conc == prot_conc ][0] ].append( prot_id )
-                
+
         # collect initial concentrations and construct new reactions
         reactions = []
-        for prot in prot_ref:
+        for prot, value in prot_ref.items():
             
             educts = []
             modifiers = []
@@ -214,20 +218,20 @@ class ThinlayerBioCatNet():
 
             for key, reac in enzmldoc.getReactionDict().items():
                 
-                if reac.getModifiers()[-1][0] in prot_ref[prot]:
-                    
+                if reac.getModifiers()[-1][0] in value:
+
                     educts += reac.getEducts()
                     products += reac.getProducts()
                     mods = reac.getModifiers()
                     mods[-1] = ( mods[-1][0], mods[-1][1], mods[-1][2], mods[-1][3], mods[-1][4] )
                     modifiers += mods
-            
-            
-                        
+
+
+
             educt_dict = self.__sumElements(educts, enzmldoc)
             product_dict = self.__sumElements(products, enzmldoc)
             modifiers_dict= self.__sumElements(modifiers, enzmldoc)
-            
+
             enz_reaction = EnzymeReaction( 
                 reac.getTemperature(), 
                 "C", 
@@ -235,15 +239,15 @@ class ThinlayerBioCatNet():
                 reac.getName(), 
                 reac.getReversible()
                 )
-            
+
             reactions.append( { 'reaction': enz_reaction, 'educts': educt_dict, 'products': product_dict, 'modifiers': modifiers_dict } )
-        
+
         return reactions   
             
     def __sumElements(self, elements, enzmldoc):
                 
         element_dict = {}
-        
+
         for tup in elements:
             id_ = tup[0]
             if 's' in id_: name = enzmldoc.getReactant(id_).getName();
@@ -252,44 +256,51 @@ class ThinlayerBioCatNet():
             const = tup[2]
             reps = tup[3]
             inits = tup[4]
-            
-            
+
+
             if name.split('_')[0] not in element_dict:
-                if '_' in name and 's' in id_:
-                    element_dict[ name.split('_')[0] ] = (tup[0], tup[1], tup[2], tup[3], [enzmldoc.getReactant(id_).getInitConc()] )
-                else:
-                    element_dict[ name.split('_')[0] ] = tup
-            else:
-                if '_' in name:
-                    
-                    if 's' in id_:
-                        
-                        nu_reps = element_dict[ name.split('_')[0] ][3] + reps
-                        
-                        for i, rep in enumerate(nu_reps):
-                            nu_reps[i].setReactant( id_ )
-                            
-                        element_dict[ name.split('_')[0] ] = ( 
-                            
-                            id_, 
-                            stoich, 
-                            const, 
-                            nu_reps, 
-                            element_dict[ name.split('_')[0] ][4] + [enzmldoc.getReactant(id_).getInitConc()]
-                            
-                            )
-                    elif 'p' in id_:
-                        
-                        element_dict[ enzmldoc.getProtein( id_ ).getName().split('_')[0] ]  = (
-                            
-                            id_,
-                            1.0,
-                            True,
-                            [],
-                            []
-                            )
-                        
-                    
+                element_dict[name.split('_')[0]] = (
+                    (
+                        tup[0],
+                        tup[1],
+                        tup[2],
+                        tup[3],
+                        [enzmldoc.getReactant(id_).getInitConc()],
+                    )
+                    if '_' in name and 's' in id_
+                    else tup
+                )
+
+            elif '_' in name:
+
+                if 's' in id_:
+
+                    nu_reps = element_dict[ name.split('_')[0] ][3] + reps
+
+                    for i, rep in enumerate(nu_reps):
+                        nu_reps[i].setReactant( id_ )
+
+                    element_dict[ name.split('_')[0] ] = ( 
+
+                        id_, 
+                        stoich, 
+                        const, 
+                        nu_reps, 
+                        element_dict[ name.split('_')[0] ][4] + [enzmldoc.getReactant(id_).getInitConc()]
+
+                        )
+                elif 'p' in id_:
+
+                    element_dict[ enzmldoc.getProtein( id_ ).getName().split('_')[0] ]  = (
+
+                        id_,
+                        1.0,
+                        True,
+                        [],
+                        []
+                        )
+
+
         return element_dict
                         
     def __parseXLSX( self ):
@@ -303,27 +314,27 @@ class ThinlayerBioCatNet():
         self.comps.columns=self.comps.iloc[0]
         self.comps = self.comps.drop( self.comps.index[0])
         self.params = self.doc['measured parameters']
-        
+
         # initialize dicts
-        self.proteins = dict()
-        self.reactants = dict()
-        self.measurements = dict()
-        self.reactions = dict()
+        self.proteins = {}
+        self.reactants = {}
+        self.measurements = {}
+        self.reactions = {}
         self.meas_index = 1
-        
+
         # parse user info
         self.__getUI()
-        
+
         # parse vessel
         self.__getVessel()
-        
+
         # parser proteins
         self.__getProteins()
-        
+
         # parse reactants
         self.__getReactants()
         self.__getBuffer()
-        
+
         # parse reaction and replicates
         self.__getReaction()
         
@@ -333,53 +344,53 @@ class ThinlayerBioCatNet():
         reac_string = self.__filter( self.reacs, "reaction type", x=-1, y =1 )["reaction type_0"].replace('', '')
         educts = [ self.__getStoich(string) for string in reac_string.split('->')[0].split('+') ]
         products = [ self.__getStoich(string) for string in reac_string.split('->')[1].split('+') ]
-                
+
         for key, item in self.measurements.items():
             
             # replace elements with proper indexed measurement elements
             meas_educts = deepcopy(educts)
             for educt in item:
                 for i, tup in enumerate(meas_educts):
-                    
+
                     if educt.split('_')[0] == tup[-1]:
                         meas_educts[i] = (tup[0], educt)
-                
+
             meas_products = deepcopy(products)
-            
+
             for product in item:
                 for i, tup in enumerate(meas_products):
-                    
+
                     if product.split('_')[0] == tup[-1]:
                         meas_products[i] = (tup[0], product)
-                        
-        
+
+
             self.reactions[key] = {
-                
+
                 'name': name,
                 'ph': self.__filter( self.conds, "pH ", y=1 )["pH _0"],
                 'temp': float(self.__filter( self.conds, "pH ", x=-1, y=1 )["pH _0"]),
                 'educts': meas_educts ,
                 'products': meas_products,
                 'modifiers': self.buffer
-                
+
             }
-            
+
             # get appropiate replicates
             df_meas = self.comps[ self.comps["MEASUREMENT NO."] == key ]
-            
+
             # get numbers of replicates
             repls = list(set( df_meas['replication no.'] ))
             replicates = []
             for repl in repls:
                 
                 df_repl = df_meas[ df_meas['replication no.'] == repl ]
-                reac = list(set( df_meas['COMPOUND NAME'] ))[0] + "_%s" % str(key)
+                reac = list(set( df_meas['COMPOUND NAME'] ))[0] + f"_{str(key)}"
                 time = df_repl["TIME VALUE"].tolist()
                 time_unit = list(set(df_repl["TIME UNIT"]))[0]
                 data = df_repl["CONCENTRATION VALUE"]
                 data.index = time
                 data_unit = list(set(df_repl["CONCENTRATION UNIT"]))[0].replace('mol', 'mole')
-                
+
                 replicates.append( { 
                                         "reactant": reac,
                                         "id": "repl_%i_%i" % (key, len(replicates)), 
@@ -387,7 +398,7 @@ class ThinlayerBioCatNet():
                                         "data": data, 
                                         "data_unit":data_unit 
                                     } )
-                
+
             self.reactions[key]['replicates'] = replicates
             
     def __getProteins( self ):
@@ -400,28 +411,26 @@ class ThinlayerBioCatNet():
 
             if str(row[0]) == "nan":
                 break
-            else:
-                self.proteins[ row[0] ] = {'sequence': row[2]}
-                i += 1
-            
+            self.proteins[ row[0] ] = {'sequence': row[2]}
+            i += 1
+
         # Get Concentration values
-        name = list(self.proteins.keys())[0] 
+        name = list(self.proteins.keys())[0]
         conc_val = self.__filter( self.reacs, name, x=3 )
         conc_unit = self.__filter( self.reacs, name, x=4 )
         meas_num = self.__filter( self.reacs, name, x=-1 )
-        
+
         prot_meta = { key.split('_')[0] + "_%i" % meas_num[key] : ( conc_val[key], conc_unit[key], meas_num[key] ) for key in conc_val }
-        
+
         # get all measurements
-        for i, prot in enumerate(prot_meta):
-            
+        for prot in prot_meta:
             self.measurements[prot_meta[prot][2]] = [ prot ] 
-            
-            self.proteins[prot] = dict()
+
+            self.proteins[prot] = {}
             self.proteins[prot]['sequence'] = self.proteins[name]['sequence']
             self.proteins[prot]['conc_val'] = float( prot_meta[prot][0] )
             self.proteins[prot]['conc_unit'] = prot_meta[prot][1].replace('mol', 'mole')
-        
+
         self.proteins.pop(name)
         
     def __getReactants( self ):
@@ -431,35 +440,32 @@ class ThinlayerBioCatNet():
         while True:
             row = self.reacs.iloc[i]
             name = row[0]
-            
+
             if str(name) == "nan" or name == "REACTION":
                 break
+            smiles = self.__filter(self.reacs, name, x=1)[f"{name}_0"]
+            conc_val = self.__filter(self.reacs, name, x=3)
+            conc_unit = self.__filter(self.reacs, name, x=4)
+            meas_num = self.__filter( self.reacs, name, x=-1 )
+
+            reac_meta = { key.split("_")[0] + "_%i" % (int(meas_num[key])): ( conc_val[key], conc_unit[key], meas_num[key] ) for key in conc_val if key.split('_')[-1] != "0" }
+
+            if len(reac_meta.keys()) > 0:
+                
+                for reac, value in reac_meta.items():
+                    self.measurements[value[-1]].append(reac)
+                    self.reactants[ reac ] = {}
+                    self.reactants[ reac ]['smiles'] = smiles
+                    self.reactants[ reac ]["conc_val"] = float( reac_meta[reac][0] )
+                    self.reactants[ reac ]["conc_unit"] = reac_meta[reac][1].replace('mol', 'mole')
+
             else:
-                
-                smiles = self.__filter(self.reacs, name, x=1)["%s_0" % name]
-                conc_val = self.__filter(self.reacs, name, x=3)
-                conc_unit = self.__filter(self.reacs, name, x=4)
-                meas_num = self.__filter( self.reacs, name, x=-1 )
-                
-                reac_meta = { key.split("_")[0] + "_%i" % (int(meas_num[key])): ( conc_val[key], conc_unit[key], meas_num[key] ) for key in conc_val if key.split('_')[-1] != "0" }
-                
-                if len(reac_meta.keys()) > 0:
-                
-                    for reac in reac_meta:
-                        self.measurements[ reac_meta[reac][-1] ].append(reac)
-                        self.reactants[ reac ] = dict()
-                        self.reactants[ reac ]['smiles'] = smiles              
-                        self.reactants[ reac ]["conc_val"] = float( reac_meta[reac][0] )
-                        self.reactants[ reac ]["conc_unit"] = reac_meta[reac][1].replace('mol', 'mole')
-                        
-                else:
                     
-                    self.reactants[ name ] = dict()
-                    self.reactants[ name ]["conc_val"] = 0.0
-                    self.reactants[ name ]["smiles"] = smiles
-                    self.reactants[ name ]["conc_unit"] = "NAN"
-                
-                i += 1
+                self.reactants[ name ] = {"conc_val": 0.0}
+                self.reactants[ name ]["smiles"] = smiles
+                self.reactants[ name ]["conc_unit"] = "NAN"
+
+            i += 1
             
                 
     def __getBuffer( self ):
@@ -490,20 +496,20 @@ class ThinlayerBioCatNet():
         self.mail = vals["EMAIL_0"]
 
     def __getCoords( self, df, cond ):
-        return [(x, y) for x, y in zip(*np.where(df.values == cond))]
+        return list(zip(*np.where(df.values == cond)))
     
     def __filter( self, df, conds, y=0, x=0 ):
-        results = dict()
-        
+        results = {}
+
         if type(conds) == str:
             conds = [conds]
-        
+
         for cond in conds:
             coords = self.__getCoords( df, cond )
-            
+
             for i, coord in enumerate(coords):
                 results[ cond + "_" + str(i) ] = df.iloc[ coord[0]+y, coord[1]+x ]
-                
+
         return results
         
     def __getStoich(self, string):
@@ -512,16 +518,13 @@ class ThinlayerBioCatNet():
         reg = re.compile(regex)
         lel = reg.findall(string)
         res = reg.findall(string)[0]
-        
+
         if res[1][-1] == " ":
             res = list(res)
-            res[1] = res[1][0:-1]
+            res[1] = res[1][:-1]
             res = tuple(res)
-            
-        if len(res[0]) == 0:
-            return ( 1.0, res[1])
-        else:
-            return ( float(res[0]), res[1] )
+
+        return (1.0, res[1]) if len(res[0]) == 0 else (float(res[0]), res[1])
         
     def __getReplicates(self):
         

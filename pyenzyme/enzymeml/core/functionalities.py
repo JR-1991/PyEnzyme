@@ -11,4 +11,4 @@ def TypeChecker( value, obj ):
     if isinstance( value, obj ):
         return value
     else:
-        raise TypeError( "Expected %s got %s" % ( str(obj), str(type(value)) ) )
+        raise TypeError(f"Expected {str(obj)} got {str(type(value))}")

@@ -4,6 +4,7 @@ Created on 12.08.2020
 @author: JR
 '''
 
+
 from pyenzyme.enzymeml.tools import EnzymeMLReader, EnzymeMLWriter
 from pyenzyme.enzymeml.models.kineticmodel import KineticModel
 
@@ -18,10 +19,10 @@ reaction = enzmldoc.getReactionDict()['r0']
 equation = "(vmax*s1)/(Km + s1)"
 
 parameters = {
-        
+
         'Km': 10.0,
         'vmax': 2.5
-        
+
     }
 
 kineticmodel = KineticModel(equation, parameters)
@@ -34,7 +35,7 @@ print(">>>>>  " + enzmldoc.getReactionDict()['r0'].getModel().getEquation())
 
 for key, item in enzmldoc.getReactionDict()['r0'].getModel().getParameters().items():
     
-    print(">>>>>  " + key, ' : ', item)
+    print(f">>>>>  {key}", ' : ', item)
 
 # Write to new EnzymeML-File
 writer = EnzymeMLWriter()

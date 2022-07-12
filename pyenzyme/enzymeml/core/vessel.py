@@ -9,7 +9,7 @@ from pyenzyme.enzymeml.core.functionalities import TypeChecker
 class Vessel(object):
 
     def __init__(self, name, id_, size, unit):
-        
+
         '''
         Object describing an EnzymeML vessel.
         
@@ -23,7 +23,7 @@ class Vessel(object):
         
         self.setName(name)
         self.setId(id_)
-        self.setMetaid("METAID_" + id_.upper())
+        self.setMetaid(f"METAID_{id_.upper()}")
         self.setConstant(True)
         self.setSize(size)
         self.setUnit(unit)

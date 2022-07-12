@@ -40,8 +40,8 @@ class UnitCreator(object):
             }
 
     def getUnit(self, unit_string, enzmldoc):
-        
-        
+
+
         '''
         Args:
             String unit_string: Standard short form of unit
@@ -49,14 +49,14 @@ class UnitCreator(object):
         
         index = 0
         while True:
-            
+
             id_ = "u%i" % index
-            
+
             if id_ not in enzmldoc.getUnitDict().keys():
                 break
             else:
                 index += 1
-        
+
         '''       
         # check if its already a unit
         regex = "[u\d]"
@@ -66,114 +66,124 @@ class UnitCreator(object):
         if 2 > 1:
             return unit_string
         '''
-                     
+
         # Call unit parser to identify units
         parser = UnitParser()
         units = sorted(parser.parse(unit_string))
-        
+
         # Check if there is already a similar unit defined
         if self.__checkFootprints(enzmldoc, units) != "NEW":
-            
+
             return self.__checkFootprints(enzmldoc, units)
-        
+
         # Initialize UnitDef
-        name = " ".join( ["%s%s %s" % ( prefix, baseunit, exponent ) for prefix, baseunit, exponent in units ] )
+        name = " ".join(
+            [
+                f"{prefix}{baseunit} {exponent}"
+                for prefix, baseunit, exponent in units
+            ]
+        )
+
         unitdef = UnitDef(name, id_, "NONE")
         unitdef.setFootprint(units)
-        
+
         for prefix, baseunit, exponent in units:
             self.__functionDict[baseunit]( unitdef, prefix, exponent )
-        
+
         enzmldoc.getUnitDict()[unitdef.getId()] = unitdef
-        
+
         return unitdef.getId()
     
     def __checkFootprints(self, enzmldoc, footprint):
         
         unitdict = enzmldoc.getUnitDict()
-        
+
         def __compare(f1, f2):
-            return sum( [ 0 if tup1 == tup2 else 1 for tup1, tup2 in zip( sorted(f1), sorted(f2) ) ] )
-        
+            return sum(
+                0 if tup1 == tup2 else 1
+                for tup1, tup2 in zip(sorted(f1), sorted(f2))
+            )
+
+
         for unitdef in unitdict:
             if __compare( unitdict[unitdef].getFootprint() , footprint) == 0:
 
                 return unitdict[unitdef].getId()
-            
+
         return "NEW"
             
     def __Mole(self, unitdef, prefix, exponent):
-        
+
         kind = libsbml.UNIT_KIND_MOLE
         scale = self.__getPrefix(prefix)
         multiplier = 1
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __Molar(self, unitdef, prefix, exponent):
-        
+
         self.__Mole(unitdef, prefix, exponent)
-        
+
         kind = libsbml.UNIT_KIND_LITRE
         scale = 1
         multiplier = 1
-        
+
         unitdef.addBaseUnit( kind, -1, scale, multiplier )
         
     def __Volume(self, unitdef, prefix, exponent):
-        
+
         kind = libsbml.UNIT_KIND_LITRE
         scale = self.__getPrefix(prefix)
         multiplier = 1
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __Amount(self, unitdef, prefix, exponent):
-        
+
         kind = libsbml.UNIT_KIND_GRAM
         scale = self.__getPrefix(prefix)
         multiplier = 1
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __Seconds(self, unitdef, prefix, exponent):
-        
+
         kind = libsbml.UNIT_KIND_SECOND
         scale = 1
         multiplier = 1
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __Minutes(self, unitdef, prefix=None, exponent=1):
-        
+
         kind = libsbml.UNIT_KIND_SECOND
         scale = 1
         multiplier = 60
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __Hours(self, unitdef, prefix=None, exponent=1):
-        
+
         kind = libsbml.UNIT_KIND_SECOND
         scale = 1
         multiplier = 60*60
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __Celsius(self, unitdef, prefix=None, exponent=1):
-        
+
         kind = libsbml.UNIT_KIND_KELVIN
         scale = 1
         multiplier = 1
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __Kelvin(self, unitdef, prefix=None, exponent=1):
-        
+
         kind = libsbml.UNIT_KIND_KELVIN
         scale = 1
         multiplier = 1
-        
+
         unitdef.addBaseUnit( kind, exponent, scale, multiplier )
         
     def __getPrefix(self, prefix):
@@ -197,18 +207,18 @@ class UnitCreator(object):
         elif len(prefix) == 0:
             return 1
         else:
-            raise KeyError("Prefix %s is unknown. Please define unit manually" % prefix)
+            raise KeyError(f"Prefix {prefix} is unknown. Please define unit manually")
         
     def __Time(self, baseunit):
         
-        if baseunit == "s" or baseunit == "sec" or baseunit == "seconds":
+        if baseunit in ["s", "sec", "seconds"]:
             return 1
-        elif baseunit == "m" or baseunit == "min" or baseunit == "minutes":
+        elif baseunit in ["m", "min", "minutes"]:
             return 60
-        elif baseunit == "h" or baseunit == "hours":
+        elif baseunit in ["h", "hours"]:
             return 60*60
         else:
-            raise KeyError("Time unit %s is unknown. Please define unit manually" % baseunit)
+            raise KeyError(f"Time unit {baseunit} is unknown. Please define unit manually")
         
         
         

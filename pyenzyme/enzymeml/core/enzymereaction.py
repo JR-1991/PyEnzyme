@@ -40,23 +40,19 @@ class EnzymeReaction(object):
     def __setInitConc(self, conc, reactant, enzmldoc):
         
         conc_tup = (conc, enzmldoc.getReactant(reactant).getSubstanceunits())
-        
-        if conc_tup not in enzmldoc.getConcDict().values():
-            
-            index = 0
-            while True:
-                id_ = "c%i" % index
-                if id_ not in enzmldoc.getConcDict().keys():
-                    enzmldoc.getConcDict()[ id_ ] = conc_tup
-                    return id_
-                index += 1
-                
-        else:
-            
+
+        if conc_tup in enzmldoc.getConcDict().values():
             return [ key for key, item in enzmldoc.getConcDict().items() if conc_tup == item ][0]
+        index = 0
+        while True:
+            id_ = "c%i" % index
+            if id_ not in enzmldoc.getConcDict().keys():
+                enzmldoc.getConcDict()[ id_ ] = conc_tup
+                return id_
+            index += 1
         
     def exportReplicates(self, ids):
-        
+
         '''
         Returns replicate data of given ID(s) as a pandas DataFrame.
         
@@ -66,25 +62,25 @@ class EnzymeReaction(object):
         ids = deepcopy(ids)
         if type(ids) == str:
             ids = [ids]
-        
-        
+
+
         repls = []
         all_tups = self.__educts + self.__products + self.__modifiers
-        
-        
+
+
         for tup in all_tups:
             if tup[0].split('_')[0] in ids:
-                
+
                 repls += [ repl.getData() for repl in tup[3] ]
                 ids.remove(tup[0].split('_')[0])
-        
+
         if len(ids) > 0:
-            
+
             print('\nCould not find ', ids, '\n' )
         return pd.DataFrame( repls ).T
     
     def getEduct(self, id_, index=False):
-        
+
         '''
         Returns educt tuple ( ID, Stoichiometry, IsConstant, Replicates )
         
@@ -95,15 +91,11 @@ class EnzymeReaction(object):
         
         for i, tup in enumerate(self.__educts):
             if tup[0] == id_:
-                if index:
-                    return i
-                else:
-                    return tup
-            
-        raise KeyError( "Reactant %s not defined in educts" % id_ )
+                return i if index else tup
+        raise KeyError(f"Reactant {id_} not defined in educts")
     
     def getProduct(self, id_, index=False):
-        
+
         '''
         Returns product tuple ( ID, Stoichiometry, IsConstant, Replicates )
         
@@ -114,16 +106,11 @@ class EnzymeReaction(object):
         
         for i, tup in enumerate(self.__products):
             if tup[0] == id_:
-                if index:
-                    return i
-                else:
-                    return tup
-            
-            
-        raise KeyError( "Reactant %s not defined in products" % id_ )
+                return i if index else tup
+        raise KeyError(f"Reactant {id_} not defined in products")
     
     def getModifier(self, id_, index=False):
-        
+
         '''
         Returns modifier tuple ( ID, Stoichiometry, IsConstant, Replicates )
         
@@ -134,15 +121,11 @@ class EnzymeReaction(object):
         
         for i, tup in enumerate(self.__modifiers):
             if tup[0] == id_:
-                if index:
-                    return i
-                else:
-                    return tup
-            
-        raise KeyError( "Reactant/Protein %s not defined in modifiers" % id_ )
+                return i if index else tup
+        raise KeyError(f"Reactant/Protein {id_} not defined in modifiers")
         
     def addReplicate(self, replicate, enzmldoc):
-        
+
         '''
         Adds replicate to EnzymeReaction object by pre-defined Replicate object ID. 
         If no time course data was given and error is raised.
@@ -150,51 +133,51 @@ class EnzymeReaction(object):
         Args:
             Replicate replicate: Object describing an EnzymeML replicate.
         '''
-        
+
         # Turn initial cocncentrations to IDs
         try:
             init_conc_tup = ( replicate.getInitConc(), enzmldoc.getReactant( replicate.getReactant() ).getSubstanceunits() )
             inv_conc = { item: key for key, item in enzmldoc.getConcDict().items() }
             replicate.setInitConc( inv_conc[ init_conc_tup ] )
-            
+
         except KeyError:
             index = 0
             init_conc_tup = ( replicate.getInitConc(), enzmldoc.getReactant( replicate.getReactant() ).getSubstanceunits() )
             while True:
                 id_ = "c%i" % index
-                
+
                 if id_ not in enzmldoc.getConcDict().keys():
                     enzmldoc.getConcDict()[ id_ ] = init_conc_tup
                     replicate.setInitConc(id_)
                     break
-                    
+
                 else:
                     index += 1
-        
+
         try:
             replicate.getData()
         except AttributeError:
             raise AttributeError( "Replicate has no series data. Add data via replicate.setData( pandas.Series )" )
-        
+
         for i in range(len(self.__educts)):
             if self.__educts[i][0] == replicate.getReactant():
                 self.__educts[i][3].append(replicate)
                 return 1
-            
+
         for i in range(len(self.__products)):
             if self.__products[i][0] == replicate.getReactant():
                 self.__products[i][3].append(replicate)
                 return 1
-            
+
         for i in range(len(self.__modifiers)):
             if self.__modifiers[i][0] == replicate.getReactant():
                 self.__modifiers[i][3].append(replicate)
                 return 1
-            
+
         raise AttributeError( "Replicate's reactant %s not defined in reaction" % (replicate.getReactant()) )
         
     def addEduct(self, id_, stoichiometry, constant, enzmldoc, replicates=[], init_concs=[]):
-        
+
         '''
         Adds educt to EnzymeReaction object. Replicates are not mandatory can be left empty if no data is given.
         EnzymeMLDocument has to be given to check for un-defined entities. These should be added to the document before
@@ -209,25 +192,25 @@ class EnzymeReaction(object):
         '''
         
         id_ = TypeChecker(id_, str)
-        
+
         if id_ not in list(enzmldoc.getReactantDict().keys()):
-            raise KeyError( "Reactant with id %s is not defined yet" % id_ )
-        
+            raise KeyError(f"Reactant with id {id_} is not defined yet")
+
         stoichiometry = TypeChecker( float(stoichiometry) , float)
         constant = TypeChecker(constant, bool)
-        
+
         if type(replicates) == list and len(replicates) > 0:
             replicates = replicates
         elif type(replicates) == list and len(replicates) == 0:
             replicates = []
         elif type(replicates) == Replicate:
             replicates = [replicates]
-            
+
         # replace concentrations with identifiers
         init_concs = [ self.__setInitConc(conc, id_, enzmldoc) for conc in init_concs ]
-        
+
         self.__educts.append(
-            
+
             (
                 id_,
                 stoichiometry,
@@ -235,11 +218,11 @@ class EnzymeReaction(object):
                 replicates,
                 init_concs
                 )
-            
+
             )
         
     def addProduct(self, id_, stoichiometry, constant, enzmldoc, replicates=[], init_concs=[]):
-        
+
         '''
         Adds product to EnzymeReaction object. Replicates are not mandatory can be left empty if no data is given.
         EnzymeMLDocument has to be given to check for un-defined entities. These should be added to the document before
@@ -254,25 +237,25 @@ class EnzymeReaction(object):
         '''
         
         id_ = TypeChecker(id_, str)
-        
+
         if id_ not in list(enzmldoc.getReactantDict().keys()):
-            raise KeyError( "Reactant with id %s is not defined yet" % id_ )
-        
+            raise KeyError(f"Reactant with id {id_} is not defined yet")
+
         stoichiometry = TypeChecker( float(stoichiometry) , float)
         constant = TypeChecker(constant, bool)
-        
+
         if type(replicates) == list and len(replicates) > 0:
             replicates = replicates
         elif type(replicates) == list and len(replicates) == 0:
             replicates = []
         elif type(replicates) == Replicate:
             replicates = [replicates]
-        
+
         # replace concentrations with identifiers
         init_concs = [ self.__setInitConc(conc, id_, enzmldoc) for conc in init_concs ]
-        
+
         self.__products.append(
-            
+
             (
                 id_,
                 stoichiometry,
@@ -280,11 +263,11 @@ class EnzymeReaction(object):
                 replicates,
                 init_concs
                 )
-            
+
             )
         
     def addModifier(self, id_, stoichiometry, constant, enzmldoc, replicates=[], init_concs=[]):
-        
+
         '''
         Adds product to EnzymeReaction object. Replicates are not mandatory can be left empty if no data is given.
         EnzymeMLDocument has to be given to check for un-defined entities. These should be added to the document before
@@ -299,25 +282,25 @@ class EnzymeReaction(object):
         '''
         
         id_ = TypeChecker(id_, str)
-        
-        if id_ not in list(enzmldoc.getReactantDict().keys()) + list(enzmldoc.getProteinDict().keys()) :
-            raise KeyError( "Reactant/Protein with id %s is not defined yet" % id_ )
-        
+
+        if id_ not in list(enzmldoc.getReactantDict().keys()) + list(enzmldoc.getProteinDict().keys()):
+            raise KeyError(f"Reactant/Protein with id {id_} is not defined yet")
+
         stoichiometry = TypeChecker( float(stoichiometry) , float)
         constant = TypeChecker(constant, bool)
-        
+
         if type(replicates) == list and len(replicates) > 0:
             replicates = replicates
         elif type(replicates) == list and len(replicates) == 0:
             replicates = []
         elif type(replicates) == Replicate:
             replicates = [replicates]
-            
+
         # replace concentrations with identifiers
         init_concs = [ self.__setInitConc(conc, id_, enzmldoc) for conc in init_concs ]
-        
+
         self.__modifiers.append(
-            
+
             (
                 id_,
                 stoichiometry,
@@ -325,7 +308,7 @@ class EnzymeReaction(object):
                 replicates,
                 init_concs
                 )
-            
+
             )
     
     def getTemperature(self):
@@ -411,24 +394,15 @@ class EnzymeReaction(object):
 
 
     def setEducts(self, educts):
-        if educts == None: 
-            self.__educts = []
-        else:
-            self.__educts = TypeChecker(educts, list)
+        self.__educts = [] if educts is None else TypeChecker(educts, list)
 
 
     def setProducts(self, products):
-        if products == None:
-            self.__products = list()
-        else:
-            self.__products = TypeChecker(products, list)
+        self.__products = list() if products is None else TypeChecker(products, list)
 
 
     def setModifiers(self, modifiers):
-        if modifiers == None:
-            self.__modifiers = list()
-        else:
-            self.__modifiers = TypeChecker(modifiers, list)
+        self.__modifiers = [] if modifiers is None else TypeChecker(modifiers, list)
 
 
     def delTemperature(self):
